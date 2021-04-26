@@ -126,7 +126,6 @@ protected:
 
 	Stream* _COMport;
 	Stream* _DEBUGport;
-	bool _DEBUGMODE = PROTOCOL_DEBUG_MODE;
 	char CaptureSequence = '_';
 
 	JsMessageHolder JsM_Holder;
@@ -165,6 +164,9 @@ public:
 	void Aknowledge_Json(bool VALID, char* action_taken = protocolcustom_valid_id);
 
 	void CommsHandler();
+
+	void _DirectSendInput();
+	void _DirectSendOutput();
 
 private:
 
@@ -552,7 +554,7 @@ void BJ_ProtocolHandler<ARRAY_LEN>::hex_transfer(TypeHolder* input_struct) {
 
 template <uint8_t ARRAY_LEN>
 void BJ_ProtocolHandler<ARRAY_LEN>::Free_Incoming_Sequence() {
-	if (_DEBUGMODE) {
+	if (PROTOCOL_DEBUG_MODE) {
 		_DEBUGport->println("incoming_seq_freed");
 	}
 	CaptureSequence = '_';
@@ -568,11 +570,19 @@ void BJ_ProtocolHandler<ARRAY_LEN>::Aggregate_Json(uint8_t incomingByte) {
 		if (JsonPreChecker(JsM_Holder.incomingLine, JsM_Holder.indexer) == 1) {
 			if(Internal_JsonIntrepreter()) {
 				if (Internal_JsonAknowledger()) {
-					jsonAvailable = 1;//flag to run JsonInterpreter() in main loop;
+					jsonAvailable = 1;//flag to call JsonInterpreter() once in main loop;
+					if (PROTOCOL_DEBUG_MODE) {
+						_DEBUGport->print("Null ? : "); _DEBUGport->println(jsonInput.isNull()); 
+						_DEBUGport->print(" with "); serializeJson(jsonInput, *_DEBUGport); _DEBUGport->println();
+						_DEBUGport->print(" key ? "); _DEBUGport->println(jsonInput.containsKey("go"));
+					}
 				}
 			}
 		}
 		Free_Incoming_Sequence();
+		if (PROTOCOL_DEBUG_MODE) {
+			_DEBUGport->print(" with "); serializeJson(jsonInput, *_DEBUGport); _DEBUGport->println();
+		}
 	}
 	else if (JsM_Holder.active == 3) {
 		Aknowledge_Json(false, "i");//integrity error
@@ -623,7 +633,7 @@ void BJ_ProtocolHandler<ARRAY_LEN>::Aggregate_Hex(uint8_t incomingByte) {
 		HxM_Holder.addBit(incomingByte);
 	}
 	if (HxM_Holder.active == 2) {
-		if (_DEBUGMODE) {
+		if (PROTOCOL_DEBUG_MODE) {
 			_DEBUGport->print("CRC_got: "); _DEBUGport->print(HxM_Holder.getCRC(), HEX);
 			_DEBUGport->print(" CRC_cal: ");_DEBUGport->println(HxM_Holder.calcCRC(), HEX);
 		}
@@ -639,6 +649,9 @@ void BJ_ProtocolHandler<ARRAY_LEN>::Aggregate_Hex(uint8_t incomingByte) {
 		}
 	}
 	else if (HxM_Holder.active == 3) {
+		if (PROTOCOL_DEBUG_MODE) {
+			_DEBUGport->println("Binary data corrupted. NAK");
+		}
 		Aknowledge_Binary(false);
 		Free_Incoming_Sequence();
 	}
@@ -661,25 +674,25 @@ void BJ_ProtocolHandler<ARRAY_LEN>::Start_Sequence(uint8_t incomingByte) {
 		CaptureSequence = 'j';
 		JsM_Holder.activate();
 		JsM_Holder.addBit((char)incomingByte);
-		if (_DEBUGMODE) {
+		if (PROTOCOL_DEBUG_MODE) {
 			_DEBUGport->println("incoming_seq_start_json");
 		}
 	}
 	else if (incomingByte == PROTOCOL_BINARY_LINE_START) { // "#" Starts capturing Bytes (4 bytes + 2 CRC bytes (CRC16_b))
 		CaptureSequence = 'b';
 		HxM_Holder.activate();
-		if (_DEBUGMODE) {
+		if (PROTOCOL_DEBUG_MODE) {
 			_DEBUGport->println("incoming_seq_start_hex");
 		}
 	}
 	else if (incomingByte == PROTOCOL_BINARY_AKNOWLEDGE_START) { // "@" Starts capturing 1byte for aknowledge
 		CaptureSequence = 'a';
-		if (_DEBUGMODE) {
+		if (PROTOCOL_DEBUG_MODE) {
 			_DEBUGport->println("incoming_seq_start_aknow");
 		}
 	}
 	else {
-		if (_DEBUGMODE) {
+		if (PROTOCOL_DEBUG_MODE) {
 			_DEBUGport->println("incoming_seq_start_error");
 		}
 		CaptureSequence = '_';
@@ -789,7 +802,7 @@ template <uint8_t ARRAY_LEN>
 void BJ_ProtocolHandler<ARRAY_LEN>::CommsHandler() {
 	if (_COMport->available() > 0) {
 		uint8_t incomingByte = _COMport->read();
-		if (_DEBUGMODE) {
+		if (PROTOCOL_DEBUG_MODE) {
 			_DEBUGport->print("DEC: "); _DEBUGport->print(incomingByte, DEC);_DEBUGport->print(" HEX: 0x");
 			_DEBUGport->println(incomingByte, HEX);
 		}
@@ -810,18 +823,24 @@ void BJ_ProtocolHandler<ARRAY_LEN>::CommsHandler() {
 		last_byte_memo = micros();
 	}
 	else if (CaptureSequence != '_' && micros() - last_byte_memo > PROTOCOL_TIMEOUT_MAX_BYTE_INTERVAL) {
+		if (CaptureSequence == 'b') {
+			Aknowledge_Binary(false);
+		}
+		else if (CaptureSequence == 'j') {
+			Aknowledge_Json(false,"t");
+		}
 		Free_Incoming_Sequence();
 	}
 
 	if (hexOutput_token > 0 && micros() - hex_last_send_memo > PROTOCOL_TIMEOUT_BINARY_AK) {
-		if (_DEBUGMODE) {
+		if (PROTOCOL_DEBUG_MODE) {
 			_DEBUGport->println("bin_ak_timeout");
 		}
 		Hex_TokenHandler();
 	}
 
 	if (jsonOutput_token > 0 && micros() - json_last_send_memo > PROTOCOL_TIMEOUT_JSON_AK) {
-		if (_DEBUGMODE) {
+		if (PROTOCOL_DEBUG_MODE) {
 			_DEBUGport->println("json_ak_timeout");
 		}
 		Json_TokenHandler();
@@ -842,14 +861,18 @@ bool BJ_ProtocolHandler<ARRAY_LEN>::Internal_JsonAknowledger(){
 	bool Ak_recieved = 0;
 	if (jsonInput.containsKey(PROTOCOL_JSON_AKNOWLEDGE_STR)) {
 		Json_TokenRelease();
+		jsonInput.remove(PROTOCOL_JSON_AKNOWLEDGE_STR);
 		Ak_recieved = 1;
 	}
 	else if (jsonInput.containsKey(PROTOCOL_JSON_NOT_AKNOWLEDGE_STR)) {
 		Json_TokenHandler();
+		jsonInput.remove(PROTOCOL_JSON_NOT_AKNOWLEDGE_STR);
 		Ak_recieved = 1;
 	}
 	if (Ak_recieved) {
-		jsonInput.clear();
+		if (! jsonInput.isNull()) {
+			Ak_recieved = 0;
+		}
 	}
 	return !Ak_recieved;
 }
@@ -860,15 +883,15 @@ bool BJ_ProtocolHandler<ARRAY_LEN>::Internal_JsonIntrepreter() {
 
 	if (jsonInput.containsKey("get_vartype")) {
 		if (jsonOutput_token == 0) {
-			if (_DEBUGMODE) {
+			if (PROTOCOL_DEBUG_MODE) {
 				_DEBUGport->print("vartype_called : ");
 			}
 			uint8_t varID = (uint8_t)jsonInput["get_vartype"];
-			if (_DEBUGMODE) {
+			if (PROTOCOL_DEBUG_MODE) {
 				_DEBUGport->print(varID);_DEBUGport->print(" ");
 			}
 			char* varname = (this->operator[](varID)).typeName();
-			if (_DEBUGMODE) {
+			if (PROTOCOL_DEBUG_MODE) {
 				_DEBUGport->println(varname);
 			}
 			/*char* strID = 0;
@@ -910,6 +933,7 @@ bool BJ_ProtocolHandler<ARRAY_LEN>::Internal_JsonIntrepreter() {
 	}
 	if (ValidKey) {
 		Aknowledge_Json(true);
+
 	}
 	return !ValidKey;
 }
@@ -917,10 +941,14 @@ bool BJ_ProtocolHandler<ARRAY_LEN>::Internal_JsonIntrepreter() {
 template <uint8_t ARRAY_LEN>
 bool BJ_ProtocolHandler<ARRAY_LEN>::JsonPreChecker(char* line, uint8_t len) {
 	if (len >= PROTOCOL_INPUT_LINE_SIZE) {
+		Aknowledge_Json(false, "l");
 		return 0;
 	}
 	else {
-		auto error = deserializeJson(jsonInput, line);
+		const char* temp_const_line = line;// HACK : here, we convert from char* to const char* because otherwise
+		// deserializeJson do zero-copy operation with char* (and not with const char*). This would lead to data supression when calling JsM_Holder.clear()
+		// because pointer to line == pointer to JsM_Holder.incomingLine == pointer that produces the keys of jsonInput. Therefore in main loop we cannot acess jsonInput data anymore.
+		auto error = deserializeJson(jsonInput, temp_const_line);
 		if (error) {
 			Aknowledge_Json(false, "d");// deserialisation error : not aknowledge
 			return 0;
@@ -930,6 +958,24 @@ bool BJ_ProtocolHandler<ARRAY_LEN>::JsonPreChecker(char* line, uint8_t len) {
 		}
 	}
 }
+
+template <uint8_t ARRAY_LEN>
+void BJ_ProtocolHandler<ARRAY_LEN>::_DirectSendInput() {
+	if (PROTOCOL_DEBUG_MODE){
+		_DEBUGport->print("Current Input :"); serializeJson(jsonInput, *_DEBUGport); _DEBUGport->println();
+	}
+}
+
+template <uint8_t ARRAY_LEN>
+void BJ_ProtocolHandler<ARRAY_LEN>::_DirectSendOutput() {
+	if (PROTOCOL_DEBUG_MODE) {
+		_DEBUGport->print("Current Output :"); serializeJson(jsonOutput, *_DEBUGport); _DEBUGport->println();
+	}
+}
+
+
+
+
 ////
 //// EXPLICIT INSTANTIATION OF TEMPLATES
 ////
