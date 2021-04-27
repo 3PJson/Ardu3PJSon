@@ -29,3 +29,9 @@ PPP : [Point-to-Point Protocol](https://en.wikipedia.org/wiki/Point-to-Point_Pro
 - For highly versatile and humanly readable values on :
 
 [(relaxed)](http://www.relaxedjson.org/) Json : [JavaScript Object Notation](https://fr.wikipedia.org/wiki/JavaScript_Object_Notation) based on the wonderfull [ArduinoJson](https://github.com/bblanchon/ArduinoJson) library by Benoit Blanchon.
+
+
+
+-------
+
+- Arduino Library Manager inclusion : (https://github.com/arduino/Arduino/wiki/Library-Manager-FAQ)
