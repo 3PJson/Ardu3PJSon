@@ -35,3 +35,17 @@ PPP : [Point-to-Point Protocol](https://en.wikipedia.org/wiki/Point-to-Point_Pro
 -------
 
 - Arduino Library Manager inclusion : (https://github.com/arduino/Arduino/wiki/Library-Manager-FAQ)
+
+
+
+[Hjson : converting user "dirty" json into json valid syntax.](https://hjson.github.io/)
+
+## Rules :
+
+- Start of a packet should be **{**
+
+- Json keys should **NOT** start with numbers
+- 
+
+
+
