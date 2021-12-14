@@ -28,7 +28,7 @@ PPP : [Point-to-Point Protocol](https://en.wikipedia.org/wiki/Point-to-Point_Pro
 
 - For highly versatile and humanly readable values on :
 
-[(relaxed)](http://www.relaxedjson.org/) Json : [JavaScript Object Notation](https://fr.wikipedia.org/wiki/JavaScript_Object_Notation) based on the wonderfull [ArduinoJson](https://github.com/bblanchon/ArduinoJson) library by Benoit Blanchon.
+[(relaxed)](http://www.relaxedjson.org/) Json : [JavaScript Object Notation](https://fr.wikipedia.org/wiki/JavaScript_Object_Notation) based on the wonderfull [ArduinoJson](https://github.com/bblanchon/ArduinoJson) library by [Benoit Blanchon](https://github.com/bblanchon).
 
 
 
@@ -45,7 +45,7 @@ PPP : [Point-to-Point Protocol](https://en.wikipedia.org/wiki/Point-to-Point_Pro
 - Start of a packet should be **{**
 
 - Json keys should **NOT** start with numbers
-- 
+
 
 
 
